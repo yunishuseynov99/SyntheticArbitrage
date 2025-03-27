@@ -1,0 +1,6 @@
+@FuturesPriceService_HostAddress = http://localhost:5283
+
+GET {{FuturesPriceService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
