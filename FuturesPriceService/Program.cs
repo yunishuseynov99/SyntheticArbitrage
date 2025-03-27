@@ -11,21 +11,22 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day) 
     .CreateLogger();
 
-
 builder.Services.AddSingleton(Log.Logger);
-
-
 builder.Host.UseSerilog(); 
 
 builder.Services.Configure<BinanceSettings>(
     builder.Configuration.GetSection("BinanceSettings"));
 
-builder.Services.AddHttpClient<IFuturesPriceService, FuturesPriceService.Services.FuturesPriceService>();
+builder.Services.AddHttpClient<IFuturesPriceService, 
+    FuturesPriceService.Services.FuturesPriceService>();
 
-
-builder.Services.AddHangfire(config => config.UseMemoryStorage());
+GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute { Attempts = 3 });
+builder.Services.AddHangfire((provider, config) =>
+{
+    config.UseMemoryStorage();
+    config.UseFilter(provider.GetRequiredService<AutomaticRetryAttribute>());
+});
 builder.Services.AddHangfireServer();
-
 
 
 
@@ -34,6 +35,18 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseHangfireDashboard();
+
+string recurringJobId = "fetch-prices-job";
+RecurringJob.AddOrUpdate<IFuturesPriceService>(
+    recurringJobId,
+    service => service.GetPricesAsync(),
+    "0 * * * *",                 
+     options: new RecurringJobOptions { 
+     TimeZone = TimeZoneInfo.Local,
+     }
+);
 
 if (app.Environment.IsDevelopment())
 {
@@ -44,8 +57,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
-
-app.UseHangfireDashboard();
 
 app.MapControllers();
 
