@@ -2,6 +2,7 @@
 using FuturesPriceService.DTOs;
 using FuturesPriceService.Interfaces;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 
 namespace FuturesPriceService.Services
 {
@@ -10,6 +11,7 @@ namespace FuturesPriceService.Services
         private readonly HttpClient _httpClient;
         private readonly BinanceSettings _settings;
         private readonly Serilog.ILogger _logger;
+        private List<PriceDto>? _lastSuccessfulPrices;
 
         public FuturesPriceService(HttpClient httpClient,
                                    IOptions<BinanceSettings> settings,
@@ -18,11 +20,12 @@ namespace FuturesPriceService.Services
             _httpClient = httpClient;
             _settings = settings.Value;
             _logger = logger;
+            _lastSuccessfulPrices = new List<PriceDto>();
         }
 
-        public async Task<List<FuturesPriceDto>> GetPricesAsync()
+        public async Task<List<PriceDto>> GetPricesAsync()
         {
-            var results = new List<FuturesPriceDto>();
+            var results = new List<PriceDto>();
 
             foreach (var contract in _settings.Contracts)
             {
@@ -37,9 +40,10 @@ namespace FuturesPriceService.Services
                         if (priceData != null)
                         {
                             decimal price = decimal.Parse(priceData.Price);
+                            Console.WriteLine($"[{DateTime.Now}] - Contarct & Price Fetched: {contract} {price}");
                             _logger.Information("Fetched price for {Contract}: {Price}", contract, price);
 
-                            results.Add(new FuturesPriceDto
+                            results.Add(new PriceDto
                             {
                                 Contract = contract,
                                 Price = price,
@@ -55,6 +59,7 @@ namespace FuturesPriceService.Services
                     {
                         _logger.Warning("Failed to get price for {Contract}. Status: {StatusCode}",
                                          contract, response.StatusCode);
+                        continue;
                     }
                 }
                 catch (Exception ex)
@@ -63,8 +68,29 @@ namespace FuturesPriceService.Services
                 }
             }
 
+            if (results.Count == 0)
+            {
+                if (_lastSuccessfulPrices != null && _lastSuccessfulPrices.Count > 0)
+                {
+                    _logger.Warning("No new data fetched. Using last successful prices.");
+                    return _lastSuccessfulPrices;
+                }
+                else
+                {
+                    _logger.Error("No data available, and no previous data exists.");
+                    return new List<PriceDto>();
+                }
+            }
+
+            _lastSuccessfulPrices = results;
+            _logger.Information("Successfully retrieved prices.");
             return results;
         }
+        public List<PriceDto>? GetLastSuccessfulPrices()
+        {
+            return _lastSuccessfulPrices;
+        }
+
     }
 
 }

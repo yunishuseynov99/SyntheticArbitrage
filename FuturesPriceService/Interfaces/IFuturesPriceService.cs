@@ -4,6 +4,7 @@ namespace FuturesPriceService.Interfaces
 {
     public interface IFuturesPriceService
     {
-        Task<List<FuturesPriceDto>> GetPricesAsync();
+        Task<List<PriceDto>> GetPricesAsync();
+        List<PriceDto>? GetLastSuccessfulPrices();
     }
 }

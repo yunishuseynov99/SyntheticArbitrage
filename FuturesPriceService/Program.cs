@@ -20,11 +20,10 @@ builder.Services.Configure<BinanceSettings>(
 builder.Services.AddHttpClient<IFuturesPriceService, 
     FuturesPriceService.Services.FuturesPriceService>();
 
-GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute { Attempts = 3 });
 builder.Services.AddHangfire((provider, config) =>
 {
     config.UseMemoryStorage();
-    config.UseFilter(provider.GetRequiredService<AutomaticRetryAttribute>());
+    config.UseFilter(new AutomaticRetryAttribute { Attempts = 3 });
 });
 builder.Services.AddHangfireServer();
 
@@ -42,7 +41,7 @@ string recurringJobId = "fetch-prices-job";
 RecurringJob.AddOrUpdate<IFuturesPriceService>(
     recurringJobId,
     service => service.GetPricesAsync(),
-    "0 * * * *",                 
+    "* * * * *",                 
      options: new RecurringJobOptions { 
      TimeZone = TimeZoneInfo.Local,
      }
