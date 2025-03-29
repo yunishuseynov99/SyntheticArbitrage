@@ -1,3 +1,4 @@
+using PriceDifferenceService.Messaging;
 using Microsoft.EntityFrameworkCore;
 using PriceDifferenceService.Data;
 using PriceDifferenceService.Interfaces;
@@ -14,9 +15,16 @@ builder.Host.UseSerilog();
 
 builder.Services.AddDbContext<PriceDifferenceDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 builder.Services.AddScoped<IPriceDifferenceService, PriceDifferenceService.Services.PriceDifferenceService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+builder.Services.AddScoped<RabbitMQConsumer>();
+
+// Register RabbitMQConsumer as scoped service
+builder.Services.AddScoped<RabbitMQConsumer>();
+
+// Register RabbitMQHostedService as singleton service
+builder.Services.AddSingleton<IHostedService, RabbitMQHostedService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

@@ -1,6 +1,7 @@
 ﻿using FuturesPriceService.Config;
 using FuturesPriceService.DTOs;
 using FuturesPriceService.Interfaces;
+using FuturesPriceService.Messaging;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 
@@ -10,17 +11,19 @@ namespace FuturesPriceService.Services
     {
         private readonly HttpClient _httpClient;
         private readonly BinanceSettings _settings;
+        private readonly RabbitMQPublisher _publisher;
         private readonly Serilog.ILogger _logger;
         private List<PriceDto>? _lastSuccessfulPrices;
 
         public FuturesPriceService(HttpClient httpClient,
                                    IOptions<BinanceSettings> settings,
-                                   Serilog.ILogger logger)
+                                   Serilog.ILogger logger, RabbitMQPublisher publisher)
         {
             _httpClient = httpClient;
             _settings = settings.Value;
             _logger = logger;
             _lastSuccessfulPrices = new List<PriceDto>();
+            _publisher = publisher;
         }
 
         public async Task<List<PriceDto>> GetPricesAsync()
@@ -72,17 +75,20 @@ namespace FuturesPriceService.Services
             {
                 if (_lastSuccessfulPrices != null && _lastSuccessfulPrices.Count > 0)
                 {
+                    await _publisher.PublishAsync(_lastSuccessfulPrices);
                     _logger.Warning("No new data fetched. Using last successful prices.");
                     return _lastSuccessfulPrices;
                 }
                 else
                 {
+                    await _publisher.PublishAsync(new List<PriceDto>());
                     _logger.Error("No data available, and no previous data exists.");
                     return new List<PriceDto>();
                 }
             }
 
             _lastSuccessfulPrices = results;
+            await _publisher.PublishAsync(results);
             _logger.Information("Successfully retrieved prices.");
             return results;
         }

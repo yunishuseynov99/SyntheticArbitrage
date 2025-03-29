@@ -1,5 +1,6 @@
 using FuturesPriceService.Config;
 using FuturesPriceService.Interfaces;
+using FuturesPriceService.Messaging;
 using Hangfire;
 using Hangfire.MemoryStorage;
 using Serilog;
@@ -7,18 +8,18 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day) 
+    .ReadFrom.Configuration(builder.Configuration)
     .CreateLogger();
-
 builder.Services.AddSingleton(Log.Logger);
-builder.Host.UseSerilog(); 
+builder.Host.UseSerilog();
 
 builder.Services.Configure<BinanceSettings>(
     builder.Configuration.GetSection("BinanceSettings"));
 
 builder.Services.AddHttpClient<IFuturesPriceService, 
     FuturesPriceService.Services.FuturesPriceService>();
+
+builder.Services.AddSingleton<RabbitMQPublisher>();
 
 builder.Services.AddHangfire((provider, config) =>
 {
